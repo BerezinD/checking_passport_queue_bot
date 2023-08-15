@@ -1,0 +1,11 @@
+rootProject.name = 'AnkaraPassportBot'
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            library('telegram-bot', 'org.telegram', 'telegrambots').version {
+                prefer('6.7.0')
+            }
+        }
+    }
+}
