@@ -6,6 +6,8 @@ dependencyResolutionManagement {
             library('telegram-bot', 'org.telegram', 'telegrambots').version {
                 prefer('6.7.0')
             }
+            library('selenium', 'org.seleniumhq.selenium', 'selenium-java').version('4.11.0')
+            library('tesseract-java', 'net.sourceforge.tess4j', 'tess4j').version('5.8.0')
         }
     }
 }
