@@ -8,6 +8,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -73,9 +74,44 @@ public class SiteAccessService {
         driver.findElement(By.linkText("https://ankara.kdmid.ru/queue/pssp.aspx?nm=PASSPORT"));
     }
 
-    public boolean isNameInThePassportPage(UserForAnkara currentUser, WebDriver driver) {
+    /**
+     * Searches for the surname of the user in the Ankara MID passports page.
+     * Assumed that only one surname could appear in search - returns a first match.
+     *
+     * @param currentUser user that needed to be found on a page by surname
+     * @param driver      web driver to connect to
+     * @return a row with the surname from the site, a null if nothing was found
+     */
+    public String findNameInThePassportPage(UserForAnkara currentUser, WebDriver driver) {
         driver.get(ANKARA_CHECK_PASSPORT_URL);
-        return driver.getPageSource().contains(currentUser.getSurname());
+        new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(webDriver -> webDriver.findElement(By.className("tab-accordion__block")));
+        clickAndWaitForHeader(driver);
+        if (driver.getPageSource().contains(currentUser.getSurname())) {
+            WebElement foundElement = driver.findElement(By.xpath("//p[contains(text(), \"" + currentUser.getSurname() + "\")]"));
+            return foundElement.getText();
+        }
+        return null;
+    }
+
+    public String findAll5YearsPassports(WebDriver driver) {
+        driver.get(ANKARA_CHECK_PASSPORT_URL);
+        new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(webDriver -> webDriver.findElement(By.className("tab-accordion__block")));
+        clickAndWaitForHeader(driver);
+        return driver.findElement(By.className("tab-accordion__content")).getText();
+    }
+
+    private static void clickAndWaitForHeader(WebDriver driver) {
+        WebElement header = driver.findElement(By.className("tab-accordion__title"));
+        header.click();
+        synchronized (header) {
+            try {
+                header.wait(2000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     private String addLeadingZero(int monthNumber) {

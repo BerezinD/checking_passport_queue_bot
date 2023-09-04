@@ -8,6 +8,7 @@ dependencyResolutionManagement {
             }
             library('selenium', 'org.seleniumhq.selenium', 'selenium-java').version('4.11.0')
             library('tesseract-java', 'net.sourceforge.tess4j', 'tess4j').version('5.8.0')
+            library('web-driver-manager', 'io.github.bonigarcia', 'webdrivermanager').version('5.5.3')
         }
     }
 }

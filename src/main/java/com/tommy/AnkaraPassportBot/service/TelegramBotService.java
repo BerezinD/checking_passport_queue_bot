@@ -4,7 +4,10 @@ import com.tommy.AnkaraPassportBot.config.BotConfig;
 import com.tommy.AnkaraPassportBot.database.UserRepository;
 import com.tommy.AnkaraPassportBot.model.UserForAnkara;
 import com.tommy.AnkaraPassportBot.service.selenium.SiteAccessService;
+import io.github.bonigarcia.wdm.WebDriverManager;
 import jakarta.inject.Inject;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +21,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Optional;
 
 @Component
@@ -49,6 +53,7 @@ public class TelegramBotService extends TelegramLongPollingBot {
                 case "/start" -> startCommandReceived(chatId, receivedMessage.getChat().getFirstName());
                 case "/calendar" -> calendarCommandReceived(chatId);
                 case "/check_passport_readiness" -> checkPassportReadinessCommandReceived(chatId);
+                case "/all_5_year_passports" -> getAll5YearsPassportsCommandReceived(chatId);
                 default -> {
                     sendMessage(chatId, "Not supported operation");
                     LOGGER.info("No supported operation was found. User input: %s".formatted(messageText));
@@ -63,17 +68,37 @@ public class TelegramBotService extends TelegramLongPollingBot {
 
     private void calendarCommandReceived(Long chatId) {
         UserForAnkara currentUser = getUserForAnkaraFromDB(chatId);
-        accessService.parseAnkaraPage(currentUser, new FirefoxDriver());
+        FirefoxDriver firefoxDriver = new FirefoxDriver();
+        accessService.parseAnkaraPage(currentUser, firefoxDriver);
+        firefoxDriver.close();
+    }
+
+    private void getAll5YearsPassportsCommandReceived(Long chatId) {
+        ChromeDriver chromeDriver = getChromeDriver();
+        sendMessage(chatId, accessService.findAll5YearsPassports(chromeDriver));
+        chromeDriver.close();
     }
 
     private void checkPassportReadinessCommandReceived(Long chatId) {
         UserForAnkara currentUser = getUserForAnkaraFromDB(chatId);
-        boolean isNameExists = accessService.isNameInThePassportPage(currentUser, new FirefoxDriver());
-        if (isNameExists) {
-            sendMessage(chatId, "Passport is ready, your surname is on the list!");
+        ChromeDriver chromeDriver = getChromeDriver();
+        String foundName = accessService.findNameInThePassportPage(currentUser, chromeDriver);
+        if (foundName != null) {
+            sendMessage(chatId, "Passport is ready, your surname \""+ foundName +"\" is on the list!");
         } else {
             sendMessage(chatId, "No sight of you surname on the list of new passports :-(");
         }
+        chromeDriver.close();
+    }
+
+    private static ChromeDriver getChromeDriver() {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--disable-extensions");
+        options.addArguments("--disable-blink-features=AutomationControlled");
+        options.setExperimentalOption("excludeSwitches", Collections.singletonList("enable-automation"));
+        options.setExperimentalOption("useAutomationExtension", false);
+        WebDriverManager.chromedriver().setup();
+        return new ChromeDriver(options);
     }
 
     private UserForAnkara getUserForAnkaraFromDB(Long chatId) {

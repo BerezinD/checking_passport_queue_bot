@@ -19,6 +19,7 @@ dependencies {
 	implementation libs.telegram.bot
 	implementation libs.selenium
 	implementation libs.tesseract.java
+	implementation libs.web.driver.manager
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'com.h2database:h2'
