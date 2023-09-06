@@ -75,14 +75,14 @@ public class TelegramBotService extends TelegramLongPollingBot {
 
     private void getAll5YearsPassportsCommandReceived(Long chatId) {
         ChromeDriver chromeDriver = getChromeDriver();
-        sendMessage(chatId, accessService.findAll5YearsPassports(chromeDriver));
+        sendMessage(chatId, accessService.findAll5YearsPassports());
         chromeDriver.close();
     }
 
     private void checkPassportReadinessCommandReceived(Long chatId) {
         UserForAnkara currentUser = getUserForAnkaraFromDB(chatId);
         ChromeDriver chromeDriver = getChromeDriver();
-        String foundName = accessService.findNameInThePassportPage(currentUser, chromeDriver);
+        String foundName = accessService.findNameInThePassportPage(currentUser);
         if (foundName != null) {
             sendMessage(chatId, "Passport is ready, your surname \""+ foundName +"\" is on the list!");
         } else {

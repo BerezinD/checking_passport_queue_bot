@@ -14,11 +14,21 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.tommy.AnkaraPassportBot.AppConstants.ANKARA_BASE_ASPX_URL;
 import static com.tommy.AnkaraPassportBot.AppConstants.ANKARA_CHECK_PASSPORT_URL;
@@ -94,12 +104,67 @@ public class SiteAccessService {
         return null;
     }
 
+    public String findNameInThePassportPage(UserForAnkara currentUser) {
+        ArrayList<String> readyPassports = getReadyPassports();
+        return readyPassports.stream().filter(passport -> passport.contains(currentUser.getSurname())).findFirst().orElse(null);
+    }
+
     public String findAll5YearsPassports(WebDriver driver) {
         driver.get(ANKARA_CHECK_PASSPORT_URL);
         new WebDriverWait(driver, Duration.ofSeconds(10))
                 .until(webDriver -> webDriver.findElement(By.className("tab-accordion__block")));
         clickAndWaitForHeader(driver);
         return driver.findElement(By.className("tab-accordion__content")).getText();
+    }
+
+    /**
+     * Find 5 years passports based on regular expression
+     *
+     * @return surnames who can get passport along with row numbers
+     */
+    public String findAll5YearsPassports() {
+        return String.join("\n", getReadyPassports());
+    }
+
+    private ArrayList<String> getReadyPassports() {
+        InputStream response;
+        try {
+            response = getInputStreamFromAnkaraPage();
+        } catch (IOException e) {
+            LOGGER.error("Cannot get the Ankara page", e);
+            throw new RuntimeException(e);
+        }
+        ArrayList<String> results = new ArrayList<>();
+        try (Scanner scanner = new Scanner(response)) {
+            String responseBody = scanner.useDelimiter("\\A").next();
+            Pattern pattern =
+                    Pattern.compile("<div class=\"tab-accordion__content\">(.+?)</div></div></div></div>", Pattern.DOTALL);
+            Matcher matcher = pattern.matcher(responseBody);
+            if (matcher.find()) {
+                String all5YearsPassports = matcher.group(1);
+                pattern = Pattern.compile("<p>(.+?)</p>", Pattern.DOTALL);
+                matcher = pattern.matcher(all5YearsPassports);
+                while (matcher.find()) {
+                    String parseResult = matcher.group(1);
+                    if (isNumeric(parseResult)) {
+                        if (matcher.find()) {
+                            results.add(parseResult + "  " + matcher.group(1));
+                        }
+                    }
+                }
+            }
+        }
+        return results;
+    }
+
+    private static InputStream getInputStreamFromAnkaraPage() throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(ANKARA_CHECK_PASSPORT_URL).openConnection();
+        connection.setRequestProperty("Accept-Charset", StandardCharsets.UTF_8.name());
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("User-Agent", "PostmanRuntime/7.32.3");
+        connection.setRequestProperty("Connection", "keep-alive");
+        connection.setUseCaches(false);
+        return connection.getInputStream();
     }
 
     private static void clickAndWaitForHeader(WebDriver driver) {
@@ -129,5 +194,20 @@ public class SiteAccessService {
         tesseract.setVariable("textord_heavy_nr", "1");
         tesseract.setDatapath(tessDataFolder.getAbsolutePath());
         return tesseract.doOCR(captchaPic);
+    }
+
+    public static boolean isNumeric(String str) {
+        return str.matches("-?\\d+(\\.\\d+)?");  //match a number with optional '-' and decimal.
+    }
+
+    private String buildStringTableFromMap(Map<Integer, String> resultMap) {
+        StringBuilder result = new StringBuilder();
+        resultMap.keySet().forEach(key -> {
+            result.append(key);
+            result.append("  ");
+            result.append(resultMap.get(key));
+            result.append("/n");
+        });
+        return result.toString();
     }
 }
